@@ -1,7 +1,6 @@
 
-'use strict';
 
-const caps = require('./hub');
+'use strict';
 
 /**
  * Log a CAPS event with its timestamp and payload.
@@ -15,18 +14,5 @@ function logEvent(event, payload) {
     payload,
   });
 }
-
-// Listen for the three package events.
-caps.on('pickup', (payload) => {
-  logEvent('pickup', payload);
-});
-
-caps.on('in-transit', (payload) => {
-  logEvent('in-transit', payload);
-});
-
-caps.on('delivered', (payload) => {
-  logEvent('delivered', payload);
-});
 
 module.exports = { logEvent };
