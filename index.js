@@ -1,14 +1,10 @@
 
 'use strict';
 
-// Load the global event logger first.
-require('./logger');
+const { startServer } = require('./hub');
 
-// Load the driver and register its pickup listener.
-require('./driver');
+const PORT = process.env.PORT || 3000;
 
-// Load the vendor and register its delivery listener.
-const vendor = require('./vendor');
+startServer(PORT);
 
-// Start our first CAPS delivery simulation.
-vendor.requestPickup('1-206-flowers');
+console.log(`CAPS: Socket.io server running on port ${PORT}`);

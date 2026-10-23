@@ -1,0 +1,26 @@
+flowchart TD
+    V["Vendor Client<br/>1-206-flowers"]
+    H["CAPS Socket.io Server<br/>Namespace: /caps"]
+    R["Vendor Room<br/>1-206-flowers"]
+    D["Driver Client"]
+    L["Event Logger"]
+    C["Console"]
+
+    V -->|"connect and emit: join"| H
+    H -->|"socket.join(store)"| R
+
+    V -->|"emit: pickup"| H
+    H -->|"broadcast: pickup"| D
+
+    D -->|"emit: in-transit"| H
+    H -->|"emit: in-transit"| R
+
+    D -->|"emit: delivered"| H
+    H -->|"emit: delivered"| R
+    R -->|"delivered notification"| V
+
+    H -->|"log pickup, in-transit, delivered"| L
+    L -->|"event, timestamp, payload"| C
+
+    D -->|"pickup and delivery messages"| C
+    V -->|"Thank customer"| C
