@@ -1,69 +1,100 @@
 
-# CAPS — Class 12 UML Diagram
+# CAPS — Class 13 UML Diagram
 
-## Phase 2: Socket.io Event-Driven Architecture
+## Phase 3: Socket.io Message Queues
 
 ```mermaid
 flowchart TD
-    V["Vendor Client<br/>1-206-flowers"]
-    H["CAPS Socket.io Server<br/>Namespace: /caps"]
-    R["Vendor Room<br/>1-206-flowers"]
+    A["Vendor: acme-widgets"]
+    F["Vendor: 1-800-flowers"]
+    H["CAPS Socket.io Hub<br/>Namespace: /caps"]
+    Q["Queue Module<br/>Persistent while server runs"]
+    P["Driver Pickup Queue"]
+    DA["acme-widgets Delivered Queue"]
+    DF["1-800-flowers Delivered Queue"]
     D["Driver Client"]
-    L["Event Logger"]
-    C["Console"]
 
-    V -->|"connect and emit: join"| H
-    H -->|"socket.join(store)"| R
+    A -->|"emit pickup"| H
+    F -->|"emit pickup"| H
 
-    V -->|"emit: pickup"| H
-    H -->|"broadcast: pickup"| D
+    H -->|"store pickup"| Q
+    Q --> P
+    P -->|"publish pickup"| D
 
-    D -->|"emit: in-transit"| H
-    H -->|"emit: in-transit"| R
+    D -->|"emit in-transit"| H
+    D -->|"emit delivered"| H
 
-    D -->|"emit: delivered"| H
-    H -->|"emit: delivered"| R
-    R -->|"delivered notification"| V
+    H -->|"store delivered"| Q
+    Q --> DA
+    Q --> DF
 
-    H -->|"log pickup, in-transit, delivered"| L
-    L -->|"event, timestamp, payload"| C
+    DA -->|"delivered for acme-widgets"| A
+    DF -->|"delivered for 1-800-flowers"| F
 
-    D -->|"pickup and delivery messages"| C
-    V -->|"Thank customer"| C
+    D -->|"getAll pickup"| H
+    A -->|"getAll delivered"| H
+    F -->|"getAll delivered"| H
+
+    H -->|"retrieve missed messages"| Q
+
+    D -->|"received acknowledgement"| H
+    A -->|"received acknowledgement"| H
+    F -->|"received acknowledgement"| H
+
+    H -->|"remove acknowledged message"| Q
 ```
 
-## Event Payload
+## Message Payload
 
-Each package event carries the following information:
+Queued messages will use the following structure:
 
-- `store`: Name of the vendor
-- `orderId`: Unique package identifier
-- `customer`: Customer's name
-- `address`: Delivery destination
+```js
+{
+  event: 'pickup',
+  messageId: 'unique-order-id',
+  clientId: 'drivers',
+  order: {
+    store: 'acme-widgets',
+    orderId: 'unique-order-id',
+    customer: 'Jane Doe',
+    address: 'Portland, OR'
+  }
+}
+```
+
+For delivered notifications, `event` becomes `delivered` and `clientId` identifies the appropriate store.
+
+## Queue Events
+
+| Event | Purpose |
+| --- | --- |
+| `pickup` | Store an order for drivers to collect |
+| `in-transit` | Notify CAPS that a driver is transporting an order |
+| `delivered` | Store a delivery notification for the correct vendor |
+| `getAll` | Retrieve messages missed while disconnected |
+| `received` | Acknowledge a message so it can be removed |
 
 ## Event Sequence
 
-1. The CAPS Socket.io server starts on port `3000` using the `/caps` namespace.
-2. The driver and vendor connect as separate Socket.io clients.
-3. The vendor emits `join` with its store name, `1-206-flowers`.
-4. The server adds the vendor socket to the matching store room.
-5. The vendor creates an order and emits `pickup`.
-6. The server logs the event and broadcasts `pickup` to other connected clients.
-7. The driver receives `pickup` and emits `in-transit`.
-8. The server logs `in-transit` and forwards it to the vendor's room.
-9. The driver emits `delivered`.
-10. The server logs `delivered` and forwards it to the vendor's room.
-11. The vendor receives `delivered` and thanks the customer.
+1. Start the CAPS Socket.io server on port `3000`.
+2. Connect the driver and both vendor clients to `/caps`.
+3. Vendors publish pickup requests.
+4. CAPS stores pickup messages in the driver queue.
+5. Drivers receive pickup notifications and acknowledge them.
+6. Drivers emit `in-transit` and `delivered`.
+7. CAPS stores delivery notifications in the appropriate vendor queue.
+8. Vendors receive delivery notifications and acknowledge them.
+9. When a client reconnects, it emits `getAll` for missed messages.
+10. CAPS replays unacknowledged messages.
+11. The server removes messages only after receiving the correct acknowledgement.
 
 ## Architecture Notes
 
-- **Socket.io server:** `hub.js`
-- **Server entry point:** `index.js`
-- **Vendor client:** `vendor.js`
-- **Driver client:** `driver.js`
-- **Event logger:** `logger.js`
-- **Namespace:** `/caps`
-- **Vendor room:** `1-206-flowers`
+- `hub.js` — Socket.io server and event routing
+- `queue.js` — In-memory message queue module (planned)
+- `driver.js` — Driver subscriber and acknowledgement logic
+- `vendor.js` — Vendor subscribers for both stores
+- `logger.js` — Timestamped event logging
+- `index.js` — Server entry point
 
-The server broadcasts pickup events to other clients, excluding the sender. Delivery-related events are routed to the appropriate vendor room.
-
+The queue will retain messages during client disconnections. Because this first implementation uses in-memory storage, messages will not survive a restart of the CAPS server itself.

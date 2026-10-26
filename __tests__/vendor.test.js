@@ -90,7 +90,7 @@ describe('CAPS Vendor', () => {
   
     expect(socket.on).toHaveBeenCalledWith(
       'delivered',
-      handleDelivered
+      expect.any(Function)
     );
   
     expect(socket.on).toHaveBeenCalledWith(
@@ -141,6 +141,15 @@ describe('CAPS Vendor', () => {
     expect(consoleSpy).toHaveBeenCalledWith(
       'VENDOR: connected to CAPS vendor-123'
     );
+
+    expect(socket.emit).toHaveBeenCalledWith(
+      'getAll',
+      {
+        clientId: '1-206-flowers',
+        event: 'delivered',
+      }
+    );
+
   });
 
   test('logs a Socket.io connection error', () => {
@@ -234,6 +243,55 @@ describe('CAPS Vendor', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  test('acknowledges a queued delivery message', () => {
+    const socket = {
+      on: jest.fn(),
+      emit: jest.fn(),
+    };
+  
+    io.mockReturnValue(socket);
+  
+    const consoleSpy = jest
+      .spyOn(console, 'log')
+      .mockImplementation(() => {});
+  
+    const { orderInterval } = startVendor();
+    clearInterval(orderInterval);
+  
+    const deliveredHandler = socket.on.mock.calls.find(
+      ([event]) => event === 'delivered'
+    )[1];
+  
+    const order = {
+      store: '1-206-flowers',
+      orderId: '12345',
+      customer: 'Jane Doe',
+      address: 'Portland, OR',
+    };
+  
+    const message = {
+      event: 'delivered',
+      messageId: '12345',
+      clientId: '1-206-flowers',
+      order,
+    };
+  
+    deliveredHandler(message);
+  
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Thank you for your order Jane Doe'
+    );
+  
+    expect(socket.emit).toHaveBeenCalledWith(
+      'received',
+      {
+        clientId: '1-206-flowers',
+        event: 'delivered',
+        messageId: '12345',
+      }
+    );
   });
 
 });

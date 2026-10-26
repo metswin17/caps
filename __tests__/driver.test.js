@@ -136,6 +136,15 @@ describe('CAPS Driver', () => {
     expect(consoleSpy).toHaveBeenCalledWith(
       'DRIVER: connected to CAPS driver-123'
     );
+
+    expect(socket.emit).toHaveBeenCalledWith(
+      'getAll',
+      {
+        clientId: 'drivers',
+        event: 'pickup',
+      }
+    );
+
   });
 
   test('logs a Socket.io connection error', () => {
@@ -203,6 +212,49 @@ describe('CAPS Driver', () => {
       2,
       'delivered',
       payload
+    );
+  });
+
+  test('acknowledges a queued pickup message', () => {
+    const socket = {
+      on: jest.fn(),
+      emit: jest.fn(),
+    };
+  
+    io.mockReturnValue(socket);
+  
+    jest.spyOn(console, 'log')
+      .mockImplementation(() => {});
+  
+    startDriver();
+  
+    const pickupHandler = socket.on.mock.calls.find(
+      ([event]) => event === 'pickup'
+    )[1];
+  
+    const order = {
+      store: '1-206-flowers',
+      orderId: '12345',
+      customer: 'Jane Doe',
+      address: 'Portland, OR',
+    };
+  
+    const message = {
+      event: 'pickup',
+      messageId: '12345',
+      clientId: 'drivers',
+      order,
+    };
+  
+    pickupHandler(message);
+  
+    expect(socket.emit).toHaveBeenCalledWith(
+      'received',
+      {
+        clientId: 'drivers',
+        event: 'pickup',
+        messageId: '12345',
+      }
     );
   });
 

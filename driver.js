@@ -33,10 +33,27 @@ function startDriver() {
 
   socket.on('connect', () => {
     console.log(`DRIVER: connected to CAPS ${socket.id}`);
+
+    socket.emit('join', 'drivers');
+  
+    socket.emit('getAll', {
+      clientId: 'drivers',
+      event: 'pickup',
+    });
   });
 
-  socket.on('pickup', (payload) => {
-    handlePickup(payload, socket);
+  socket.on('pickup', (message) => {
+    const order = message.order || message;
+  
+    handlePickup(order, socket);
+  
+    if (message.messageId) {
+      socket.emit('received', {
+        clientId: 'drivers',
+        event: 'pickup',
+        messageId: message.messageId,
+      });
+    }
   });
 
   socket.on('connect_error', (error) => {
