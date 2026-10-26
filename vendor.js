@@ -49,13 +49,31 @@ function startVendor() {
   const socket = io(SERVER_URL);
 
   socket.on('connect', () => {
-    console.log(`VENDOR: connected to CAPS ${socket.id}`);
+  console.log(`VENDOR: connected to CAPS ${socket.id}`);
 
-    // Join the room associated with this store.
-    socket.emit('join', STORE_NAME);
+  // Join the room associated with this store.
+  socket.emit('join', STORE_NAME);
+
+  // Request deliveries missed while disconnected.
+  socket.emit('getAll', {
+    clientId: STORE_NAME,
+    event: 'delivered',
   });
+});
 
-  socket.on('delivered', handleDelivered);
+socket.on('delivered', (message) => {
+  const order = message.order || message;
+
+  handleDelivered(order);
+
+  if (message.messageId) {
+    socket.emit('received', {
+      clientId: STORE_NAME,
+      event: 'delivered',
+      messageId: message.messageId,
+    });
+  }
+});
 
   socket.on('connect_error', (error) => {
     console.error(`VENDOR: connection error: ${error.message}`);
